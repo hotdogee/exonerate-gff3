@@ -1,7 +1,7 @@
 exonerate-gff3
 ==============
 
-This is an exonerate fork with added gff3 support.
+This is an exonerate fork with added gff3 support.  
 Original website with user guides: http://www.ebi.ac.uk/~guy/exonerate/
 
 New Option:
@@ -9,7 +9,7 @@ New Option:
    
 Using the --gff3 option --showtargetgff will output GFF3. Exonerate output will be exactly the same as before without the --gff3 option.
    
-Example Command:
+Example Command:  
 `exonerate.exe -q protein.fa -t genome.fa --model protein2genome --querytype protein --targettype dna --showvulgar no --softmaskquery yes --softmasktarget yes --minintron 20 --maxintron 3000 --showalignment no --showtargetgff yes --showcigar no --geneseed 250 --score 250 --verbose 0 --gff3 yes`
 
 Example Output:
