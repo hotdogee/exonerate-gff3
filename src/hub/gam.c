@@ -125,6 +125,9 @@ GAM_ArgumentSet *GAM_ArgumentSet_create(Argument *arg){
         ArgumentSet_add_option(as, 0, "showtargetgff", NULL,
          "Include GFF output on target in results", "FALSE",
          Argument_parse_boolean, &gas.show_target_gff);
+        ArgumentSet_add_option(as, 0, "gff3", NULL,
+         "Generate GFF3 output instead of GFF2", "FALSE",
+         Argument_parse_boolean, &gas.gff3);
         ArgumentSet_add_option(as, 0, "ryo", "format",
          "Roll-your-own printf-esque output format", "NULL",
          Argument_parse_string, &gas.ryo);
@@ -1246,11 +1249,19 @@ static void GAM_display_alignment(GAM *gam, Alignment *alignment,
     if(gam->gas->show_vulgar)
         Alignment_display_vulgar(alignment, query, target, fp);
     if(gam->gas->show_query_gff)
-        Alignment_display_gff(alignment, query, target,
+        if(gam->gas->gff3)
+            Alignment_display_gff3(alignment, query, target,
+                                  TRUE, FALSE, result_id, fp);
+        else
+            Alignment_display_gff(alignment, query, target,
                               TRUE, FALSE, result_id, fp);
     if(gam->gas->show_target_gff)
-        Alignment_display_gff(alignment, query, target, FALSE,
-             Model_Type_has_genomic_target(gam->gas->type), result_id, fp);
+        if(gam->gas->gff3)
+            Alignment_display_gff3(alignment, query, target, FALSE,
+                 Model_Type_has_genomic_target(gam->gas->type), result_id, fp);
+        else
+            Alignment_display_gff(alignment, query, target, FALSE,
+                 Model_Type_has_genomic_target(gam->gas->type), result_id, fp);
     if(gam->gas->ryo)
         Alignment_display_ryo(alignment, query, target,
                               gam->gas->ryo, gam->translate, rank,
@@ -1263,6 +1274,9 @@ static void GAM_Result_display(GAM_Result *gam_result){
     register gint i;
     register Alignment *alignment;
     g_assert(gam_result);
+    //if(gam_result->gam->gas->show_query_gff || gam_result->gam->gas->show_target_gff) {
+    //    fprintf(stdout, "##gff-version 3\n");
+    //}
     for(i = 0; i < gam_result->alignment_list->len; i++){
         alignment = gam_result->alignment_list->pdata[i];
         GAM_display_alignment(gam_result->gam, alignment,

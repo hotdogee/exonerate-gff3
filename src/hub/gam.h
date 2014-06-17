@@ -54,6 +54,7 @@ typedef struct {
           gboolean  show_vulgar;
           gboolean  show_query_gff;
           gboolean  show_target_gff;
+          gboolean  gff3;
              gchar *ryo;
               gint  best_n;
           gboolean  use_subopt;

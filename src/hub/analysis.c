@@ -952,6 +952,9 @@ Analysis *Analysis_create(
                                mas->translate,
                                analysis->aas->use_exhaustive,
                                verbosity);
+    if(analysis->gam->gas->gff3 || analysis->gam->gas->show_query_gff || analysis->gam->gas->show_target_gff) {
+        fprintf(stdout, "##gff-version 3\n");
+    }
     /**/
     if(analysis->query_ac)
         Analysis_Client_set_param(analysis->query_ac, analysis->gam);

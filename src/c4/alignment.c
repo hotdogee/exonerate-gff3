@@ -16,6 +16,7 @@
 #include <string.h> /* For strlen() */
 #include <ctype.h>  /* For tolower() */
 #include <time.h>   /* For time() */
+#include <stdio.h>  /* For open_memstream() */
 
 #include "match.h"
 #include "alignment.h"
@@ -1472,6 +1473,37 @@ static gchar Alignment_get_cigar_type(AlignmentOperation *ao,
     return 'M';
     }
 
+static void Alignment_print_gff3_cigar_block(Alignment *alignment,
+            Sequence *query, Sequence *target, FILE *fp){
+    register gint i = 0;
+    register gchar *gap = "";
+    register AlignmentOperation *ao;
+    register gchar type, next_type;
+    gint move, next_move;
+    ao = alignment->operation_list->pdata[i];
+    type = Alignment_get_cigar_type(ao, &move);
+    //printf("%c%d ", type, move);
+    for(i = 1; i < alignment->operation_list->len; i++){
+        ao = alignment->operation_list->pdata[i];
+        next_type = Alignment_get_cigar_type(ao, &next_move);
+        //printf("%c%d ", next_type, next_move);
+        if(type == next_type){
+            move += next_move;
+        } else {
+            //printf("%d ", move);
+            if(move) {
+                fprintf(fp, "%s%c%d", gap, type, move);
+                gap = " ";
+            }
+            move = next_move;
+            type = next_type;
+            }
+        }
+    if(move)
+        fprintf(fp, "%s%c%d", gap, type, move);
+    return;
+    }
+
 static void Alignment_print_cigar_block(Alignment *alignment,
             Sequence *query, Sequence *target, FILE *fp){
     register gint i = 0;
@@ -2515,6 +2547,70 @@ static void Alignment_display_gff_header(Alignment *alignment,
                 " score strand frame attributes\n#\n");
     return;
     }
+    
+static void Alignment_display_gff3_line(Alignment *alignment,
+                                       Sequence *query,
+                                       Sequence *target,
+                                       gboolean report_on_query,
+                                       gchar *feature,
+                                       gint query_start,
+                                       gint target_start,
+                                       gint query_end,
+                                       gint target_end,
+                                       gboolean show_score, gint score,
+                                       gboolean show_frame, gint frame,
+                                       GPtrArray *attribute_list, FILE *fp){
+    /* <seqname> <source> <feature> <start> <end> <score> <strand> <frame>
+     * [attributes] [comments]
+     */
+    register Sequence *seq;
+    register gint i, start, end, t;
+    register gchar *attribute;
+    if(report_on_query){
+        seq = query;
+        start = query_start;
+        end = query_end;
+    } else {
+        seq = target;
+        start = target_start;
+        end = target_end;
+        }
+    if(seq->strand == Sequence_Strand_REVCOMP){
+        start = seq->len - start;
+        end = seq->len - end;
+        /* swap coords for gff output */
+        t = start;
+        start = end;
+        end = t;
+        }
+    /* Sanity checks for valid GFF output */
+    g_assert(start >= 0);
+    g_assert(end <= seq->len);
+    g_assert(start < end);
+    g_assert((!show_frame) || ((frame >= 0) && (frame <= 2)));
+    fprintf(fp, "%s\t%s:%s\t%s\t%d\t%d\t",
+            seq->id, PACKAGE, alignment->model->name, feature, start+1, end);
+    if(show_score)
+        fprintf(fp, "%d", score);
+    else
+        fprintf(fp, ".");
+    fprintf(fp, "\t%c\t", Sequence_get_strand_as_char(seq));
+    if(show_frame)
+        fprintf(fp, "%d", frame);
+    else
+        fprintf(fp, ".");
+    fprintf(fp, "\t");
+    if(attribute_list){
+        for(i = 0; i < attribute_list->len; i++){
+            attribute = attribute_list->pdata[i];
+            fprintf(fp, "%s", attribute);
+            if((i+1) < attribute_list->len)
+                fprintf(fp, ";");
+            }
+        }
+    fprintf(fp, "\n");
+    return;
+    }
 
 static void Alignment_display_gff_line(Alignment *alignment,
                                        Sequence *query,
@@ -2585,6 +2681,53 @@ static void Alignment_free_attribute_list(GPtrArray *attribute_list){
     for(i = 0; i < attribute_list->len; i++)
         g_free(attribute_list->pdata[i]);
     g_ptr_array_free(attribute_list, TRUE);
+    return;
+    }
+
+static void Alignment_display_gff3_exon(Alignment *alignment,
+                                       Sequence *query,
+                                       Sequence *target,
+                                       gboolean report_on_query,
+                                       gint query_pos,
+                                       gint target_pos,
+                                       gint exon_query_start,
+                                       gint exon_target_start,
+                                       gint exon_query_gap,
+                                       gint exon_target_gap,
+                                       gint exon_query_frameshift,
+                                       gint exon_target_frameshift, 
+                                       GPtrArray *attribute_list, 
+                                       FILE *fp){
+/*
+    register GPtrArray *attribute_list = g_ptr_array_new();
+    g_ptr_array_add(attribute_list,
+                    g_strdup_printf("insertions %d",
+                                    report_on_query?exon_query_gap
+                                                   :exon_target_gap));
+    g_ptr_array_add(attribute_list,
+                    g_strdup_printf("deletions %d",
+                                    report_on_query?exon_target_gap
+                                                   :exon_query_gap));
+    if(report_on_query){
+        if(exon_query_frameshift)
+            g_ptr_array_add(attribute_list,
+                            g_strdup_printf("frameshifts %d",
+                                            exon_query_frameshift));
+    } else {
+        if(exon_target_frameshift)
+            g_ptr_array_add(attribute_list,
+                            g_strdup_printf("frameshifts %d",
+                                            exon_target_frameshift));
+        }
+*/
+    Alignment_display_gff3_line(alignment, query, target,
+                               report_on_query, "exon",
+                               exon_query_start, exon_target_start,
+                               query_pos, target_pos,
+                               FALSE, 0, FALSE, 0, attribute_list, fp);
+/*
+    Alignment_free_attribute_list(attribute_list);
+*/
     return;
     }
 
@@ -2663,6 +2806,382 @@ static void Alignment_display_gff_utr(Alignment *alignment,
                                query_pos, target_pos,
                                FALSE, 0, FALSE, 0, NULL, fp);
         }
+    return;
+    }
+
+static void Alignment_display_gff3_match(Alignment *alignment,
+        Sequence *query, Sequence *target, gboolean report_on_query,
+        gint result_id, FILE *fp){
+    static gint match_id = 1;
+    register gint query_pos = alignment->region->query_start,
+                  target_pos = alignment->region->target_start;
+    register gint intron_id = 0, intron_length = 0;
+    register gint exon_query_start = 0, exon_target_start = 0;
+    register gint exon_query_gap = 0, exon_target_gap = 0;
+    register gint exon_query_frameshift = 0, exon_target_frameshift = 0;
+    register gint cds_query_start = -1, cds_target_start = -1,
+                  cds_query_end = -1, cds_target_end = -1;
+    register gboolean in_exon = FALSE, post_cds = FALSE;
+    register AlignmentOperation *ao;
+    register gchar gene_orientation
+               = Alignment_get_gene_orientation(alignment);
+    register GPtrArray *attribute_list = g_ptr_array_new();
+    register gint curr_utr_query_start, curr_utr_target_start;
+    /**/
+    g_ptr_array_add(attribute_list,
+        g_strdup_printf("ID=match%05d", match_id++));
+    if (gene_orientation != '.') {
+        g_ptr_array_add(attribute_list,
+            g_strdup_printf("Target=%s %d %d %c",
+            report_on_query?target->id:query->id,
+            report_on_query?alignment->region->target_start+1:alignment->region->query_start+1,
+            report_on_query?Region_target_end(alignment->region):Region_query_end(alignment->region),
+            gene_orientation
+        ));
+    } else {
+        g_ptr_array_add(attribute_list,
+            g_strdup_printf("Target=%s %d %d",
+            report_on_query?target->id:query->id,
+            report_on_query?alignment->region->target_start+1:alignment->region->query_start+1,
+            report_on_query?Region_target_end(alignment->region):Region_query_end(alignment->region)
+        ));
+    }
+    char *cigar_str;
+    size_t cigar_size;
+    FILE *cigar_stream;
+    cigar_stream = open_memstream(&cigar_str, &cigar_size);
+    Alignment_print_gff3_cigar_block(alignment, query, target, cigar_stream);
+    fclose(cigar_stream);
+    g_ptr_array_add(attribute_list,
+        g_strdup_printf("Gap=%s", cigar_str));
+    g_free(cigar_str);
+    Alignment_display_gff3_line(alignment, query, target, report_on_query,
+                               "match",
+                               alignment->region->query_start,
+                               alignment->region->target_start,
+                               Region_query_end(alignment->region),
+                               Region_target_end(alignment->region),
+                               TRUE, alignment->score,
+                               FALSE, 0, attribute_list, fp);
+    Alignment_free_attribute_list(attribute_list);
+    return;
+    }
+
+static void Alignment_display_gff3_gene(Alignment *alignment,
+        Sequence *query, Sequence *target, gboolean report_on_query,
+        gint result_id, FILE *fp){
+    static gint match_id = 1;
+    register gint i;
+    register gint query_pos = alignment->region->query_start,
+                  target_pos = alignment->region->target_start;
+    register gint intron_id = 0, intron_length = 0;
+    register gint exon_query_start = 0, exon_target_start = 0;
+    register gint exon_query_gap = 0, exon_target_gap = 0;
+    register gint exon_query_frameshift = 0, exon_target_frameshift = 0;
+    register gint cds_query_start = -1, cds_target_start = -1,
+                  cds_query_end = -1, cds_target_end = -1;
+    register gboolean in_exon = FALSE, post_cds = FALSE;
+    register AlignmentOperation *ao;
+    register gchar gene_orientation
+               = Alignment_get_gene_orientation(alignment);
+    register GPtrArray *attribute_list = g_ptr_array_new();
+    register gint curr_utr_query_start, curr_utr_target_start;
+    /**/
+    g_ptr_array_add(attribute_list,
+        g_strdup_printf("ID=gene%05d", match_id));
+    if (gene_orientation != '.') {
+        g_ptr_array_add(attribute_list,
+            g_strdup_printf("Name=%s",
+            report_on_query?target->id:query->id
+        ));
+        g_ptr_array_add(attribute_list,
+            g_strdup_printf("Target=%s %d %d %c",
+            report_on_query?target->id:query->id,
+            report_on_query?alignment->region->target_start+1:alignment->region->query_start+1,
+            report_on_query?Region_target_end(alignment->region):Region_query_end(alignment->region),
+            gene_orientation
+        ));
+    } else {
+        g_ptr_array_add(attribute_list,
+            g_strdup_printf("Name=%s",
+            report_on_query?target->id:query->id
+        ));
+        g_ptr_array_add(attribute_list,
+            g_strdup_printf("Target=%s %d %d",
+            report_on_query?target->id:query->id,
+            report_on_query?alignment->region->target_start+1:alignment->region->query_start+1,
+            report_on_query?Region_target_end(alignment->region):Region_query_end(alignment->region)
+        ));
+    }
+    char *cigar_str;
+    size_t cigar_size;
+    FILE *cigar_stream;
+    cigar_stream = open_memstream(&cigar_str, &cigar_size);
+    Alignment_print_gff3_cigar_block(alignment, query, target, cigar_stream);
+    fclose(cigar_stream);
+    g_ptr_array_add(attribute_list,
+        g_strdup_printf("Gap=%s", cigar_str));
+    g_free(cigar_str);
+    Alignment_display_gff3_line(alignment, query, target, report_on_query,
+                               "gene",
+                               alignment->region->query_start,
+                               alignment->region->target_start,
+                               Region_query_end(alignment->region),
+                               Region_target_end(alignment->region),
+                               TRUE, alignment->score,
+                               FALSE, 0, attribute_list, fp);
+    Alignment_free_attribute_list(attribute_list);
+    for(i = 1; i < alignment->operation_list->len; i++){
+        ao = alignment->operation_list->pdata[i];
+        switch(ao->transition->label){
+            case C4_Label_MATCH:
+                if((ao->transition->advance_query == 1)
+                && (ao->transition->advance_target == 1)){
+                    if((cds_query_start != -1) && (!post_cds)){
+/* CDS implemented here doesn't do anything meaningful, always appears at the 
+ * last exon.
+                        attribute_list = g_ptr_array_new();
+                        g_ptr_array_add(attribute_list,
+                                        g_strdup_printf("Parent=gene%05d", match_id));
+                        Alignment_display_gff3_line(alignment, query, target,
+                               report_on_query, "CDS",
+                               exon_query_start, exon_target_start,
+                               query_pos, target_pos,
+                               FALSE, 0, TRUE, 0, attribute_list, fp);
+                        Alignment_free_attribute_list(attribute_list);
+*/
+                        post_cds = TRUE;
+                    }
+                } else {
+                    if(cds_query_start == -1){ /* First coding exon */
+                        if(in_exon){ /* Have UTR5 */
+/* UTRs, splice sites and translational start and stop sites. These are implied 
+ * by the combination of exon and CDS and do not need to be explicitly annotated 
+ * as part of the canonical gene.
+                            attribute_list = g_ptr_array_new();
+                            g_ptr_array_add(attribute_list,
+                                            g_strdup_printf("Parent=gene%05d", match_id));
+                            Alignment_display_gff3_line(alignment, query, target,
+                               report_on_query, "five_prime_UTR",
+                               exon_query_start, exon_target_start,
+                               query_pos, target_pos,
+                               FALSE, 0, FALSE, 0, attribute_list, fp);
+                            Alignment_free_attribute_list(attribute_list);
+*/
+                        }
+                        cds_query_start = query_pos;
+                        cds_target_start = target_pos;
+                    }
+                    cds_query_end = query_pos
+                                  + (ao->transition->advance_query
+                                   * ao->length);
+                    cds_target_end = target_pos
+                                   + (ao->transition->advance_target
+                                    * ao->length);
+                }
+                /*fallthrough*/
+            case C4_Label_SPLIT_CODON:
+                if(!in_exon){
+                    exon_query_start = query_pos;
+                    exon_target_start = target_pos;
+                    exon_query_gap = 0;
+                    exon_target_gap = 0;
+                    exon_query_frameshift = 0;
+                    exon_target_frameshift = 0;
+                    in_exon = TRUE;
+                    }
+                break;
+            case C4_Label_NONE:
+                break;
+            case C4_Label_GAP:
+                exon_query_gap += (ao->transition->advance_query
+                                   * ao->length);
+                exon_target_gap += (ao->transition->advance_target
+                                   * ao->length);
+                break;
+            case C4_Label_5SS:
+                if(report_on_query){
+                    g_assert(ao->transition->advance_query == 2);
+                    g_assert(ao->transition->advance_target == 0);
+                } else {
+                    g_assert(ao->transition->advance_query == 0);
+                    g_assert(ao->transition->advance_target == 2);
+                    }
+                if(in_exon){
+/* UTRs, splice sites and translational start and stop sites. These are implied 
+ * by the combination of exon and CDS and do not need to be explicitly annotated 
+ * as part of the canonical gene.
+                    Alignment_display_gff3_utr(alignment,
+                            query, target, report_on_query, post_cds,
+                            cds_query_start, cds_target_start,
+                            cds_query_end, cds_target_end,
+                            exon_query_start, exon_target_start,
+                            query_pos, target_pos, fp);
+*/
+                    attribute_list = g_ptr_array_new();
+                    g_ptr_array_add(attribute_list,
+                                    g_strdup_printf("Parent=gene%05d", match_id));
+                    Alignment_display_gff3_exon(alignment,
+                          query, target, report_on_query,
+                          query_pos, target_pos,
+                          exon_query_start, exon_target_start,
+                          exon_query_gap, exon_target_gap,
+                          exon_query_frameshift,
+                          exon_target_frameshift, attribute_list, fp);
+                    Alignment_free_attribute_list(attribute_list);
+                    in_exon = FALSE;
+                    }
+/* UTRs, splice sites and translational start and stop sites. These are implied 
+ * by the combination of exon and CDS and do not need to be explicitly annotated 
+ * as part of the canonical gene.
+                attribute_list = g_ptr_array_new();
+                g_ptr_array_add(attribute_list,
+                                g_strdup_printf("Parent=gene%05d", match_id));
+                Alignment_display_gff3_line(alignment, query, target,
+                               report_on_query, "splice_site",
+                               query_pos, target_pos,
+                               query_pos+2, target_pos+2,
+                               FALSE, 0, FALSE, 0, attribute_list, fp);
+                Alignment_free_attribute_list(attribute_list);
+*/
+                intron_length = 0;
+                break;
+            case C4_Label_3SS:
+                if(report_on_query){
+                    g_assert(ao->transition->advance_query == 2);
+                    g_assert(ao->transition->advance_target == 0);
+                } else {
+                    g_assert(ao->transition->advance_query == 0);
+                    g_assert(ao->transition->advance_target == 2);
+                    }
+                if(in_exon){
+/* UTRs, splice sites and translational start and stop sites. These are implied 
+ * by the combination of exon and CDS and do not need to be explicitly annotated 
+ * as part of the canonical gene.
+                    Alignment_display_gff3_utr(alignment,
+                            query, target, report_on_query, post_cds,
+                            cds_query_start, cds_target_start,
+                            cds_query_end, cds_target_end,
+                            exon_query_start, exon_target_start,
+                            query_pos, target_pos, fp);
+*/
+                    attribute_list = g_ptr_array_new();
+                    g_ptr_array_add(attribute_list,
+                                    g_strdup_printf("Parent=gene%05d", match_id));
+                    Alignment_display_gff3_exon(alignment,
+                          query, target, report_on_query,
+                          query_pos, target_pos,
+                          exon_query_start, exon_target_start,
+                          exon_query_gap, exon_target_gap,
+                          exon_query_frameshift,
+                          exon_target_frameshift, attribute_list, fp);
+                    Alignment_free_attribute_list(attribute_list);
+                    in_exon = FALSE;
+                    }
+                if(gene_orientation == '+'){
+/* UTRs, splice sites and translational start and stop sites. These are implied 
+ * by the combination of exon and CDS and do not need to be explicitly annotated 
+ * as part of the canonical gene.
+                    attribute_list = g_ptr_array_new();
+                    g_ptr_array_add(attribute_list,
+                                    g_strdup_printf("Parent=gene%05d", match_id));
+                    Alignment_display_gff3_line(alignment, query, target,
+                                   report_on_query, "intron",
+                                   query_pos-intron_length-2,
+                                   target_pos-intron_length-2,
+                                   query_pos+2, target_pos+2,
+                                   FALSE, 0, FALSE, 0, attribute_list, fp);
+                    Alignment_free_attribute_list(attribute_list);
+*/
+                }
+/* UTRs, splice sites and translational start and stop sites. These are implied 
+ * by the combination of exon and CDS and do not need to be explicitly annotated 
+ * as part of the canonical gene.
+                attribute_list = g_ptr_array_new();
+                g_ptr_array_add(attribute_list,
+                                g_strdup_printf("Parent=gene%05d", match_id));
+                Alignment_display_gff3_line(alignment, query, target,
+                               report_on_query, "splice_site",
+                               query_pos, target_pos,
+                               query_pos+2, target_pos+2,
+                               FALSE, 0, FALSE, 0, attribute_list, fp);
+                Alignment_free_attribute_list(attribute_list);
+*/
+                intron_length = 0;
+                break;
+            case C4_Label_INTRON:
+                if(report_on_query){
+                    g_assert(ao->transition->advance_query == 1);
+                    g_assert(ao->transition->advance_target == 0);
+                } else {
+                    g_assert(ao->transition->advance_query == 0);
+                    g_assert(ao->transition->advance_target == 1);
+                    }
+                intron_length += ao->length;
+                break;
+            case C4_Label_FRAMESHIFT:
+                exon_query_frameshift
+                    += (ao->transition->advance_query * ao->length);
+                exon_target_frameshift
+                    += (ao->transition->advance_target * ao->length);
+                break;
+            case C4_Label_NER:
+                g_error("Unexpected NER for gff gene output");
+                break;
+            default:
+                g_error("Unknown C4_Label [%s]",
+                        C4_Label_get_name(ao->transition->label));
+                break;
+            }
+        query_pos += (ao->transition->advance_query * ao->length);
+        target_pos += (ao->transition->advance_target * ao->length);
+        }
+    if(in_exon){
+        if(cds_query_end != -1){
+            if(cds_query_end != query_pos){ /* Have 3' UTR */
+                curr_utr_query_start = MAX(exon_query_start, cds_query_end);
+                curr_utr_target_start = MAX(exon_target_start, cds_target_end);
+/* UTRs, splice sites and translational start and stop sites. These are implied 
+ * by the combination of exon and CDS and do not need to be explicitly annotated 
+ * as part of the canonical gene.
+                attribute_list = g_ptr_array_new();
+                g_ptr_array_add(attribute_list,
+                                g_strdup_printf("Parent=gene%05d", match_id));
+                Alignment_display_gff3_line(alignment, query, target,
+                               report_on_query, "three_prime_UTR",
+                               curr_utr_query_start,
+                               curr_utr_target_start,
+                               query_pos, target_pos,
+                               FALSE, 0, FALSE, 0, NULL, fp);
+                Alignment_free_attribute_list(attribute_list);
+*/
+            } else {
+/* CDS implemented here doesn't do anything meaningful, always appears at the 
+ * last exon.
+                attribute_list = g_ptr_array_new();
+                g_ptr_array_add(attribute_list,
+                                g_strdup_printf("Parent=gene%05d", match_id));
+                Alignment_display_gff3_line(alignment, query, target,
+                               report_on_query, "CDS",
+                               exon_query_start, exon_target_start,
+                               query_pos, target_pos,
+                               FALSE, 0, TRUE, 0, attribute_list, fp);
+                Alignment_free_attribute_list(attribute_list);
+*/
+            }
+        }
+        attribute_list = g_ptr_array_new();
+        g_ptr_array_add(attribute_list,
+                        g_strdup_printf("Parent=gene%05d", match_id));
+        Alignment_display_gff3_exon(alignment,
+              query, target, report_on_query,
+              query_pos, target_pos,
+              exon_query_start, exon_target_start,
+              exon_query_gap, exon_target_gap,
+              exon_query_frameshift, exon_target_frameshift, attribute_list, fp);
+        Alignment_free_attribute_list(attribute_list);
+    }
+    match_id++;
     return;
     }
 
@@ -2904,6 +3423,7 @@ static void Alignment_display_gff_gene(Alignment *alignment,
     return;
     }
 
+
 static void Alignment_display_gff_similarity(Alignment *alignment,
         Sequence *query, Sequence *target, gboolean report_on_query,
         gint result_id, FILE *fp){
@@ -2971,6 +3491,25 @@ static void Alignment_display_gff_similarity(Alignment *alignment,
     }
 
 /**/
+void Alignment_display_gff3(Alignment *alignment,
+                           Sequence *query, Sequence *target,
+                           gboolean report_on_query,
+                           gboolean report_on_genomic,
+                           gint result_id, FILE *fp){
+/* This uses type match without exons, and instead only rely on the Gap 
+ * attribute for displaying match parts. Sadly, the Gap attribute isn't 
+ * supported yet in jbrowse.
+    if(report_on_genomic){
+        Alignment_display_gff3_match(alignment, query, target,
+                                   report_on_query, result_id, fp);
+        }
+*/
+    if(report_on_genomic){
+        Alignment_display_gff3_gene(alignment, query, target,
+                               report_on_query, result_id, fp);
+    }
+    return;
+}
 
 void Alignment_display_gff(Alignment *alignment,
                            Sequence *query, Sequence *target,
@@ -2988,7 +3527,7 @@ void Alignment_display_gff(Alignment *alignment,
                                      report_on_query, result_id, fp);
     fprintf(fp, "# --- END OF GFF DUMP ---\n#\n");
     return;
-    }
+}
 
 /**/
 
