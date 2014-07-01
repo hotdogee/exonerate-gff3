@@ -2721,7 +2721,7 @@ static void Alignment_display_gff3_exon(Alignment *alignment,
         }
 */
     Alignment_display_gff3_line(alignment, query, target,
-                               report_on_query, "exon",
+                               report_on_query, "match_part",
                                exon_query_start, exon_target_start,
                                query_pos, target_pos,
                                FALSE, 0, FALSE, 0, attribute_list, fp);
@@ -2888,7 +2888,7 @@ static void Alignment_display_gff3_gene(Alignment *alignment,
     register gint curr_utr_query_start, curr_utr_target_start;
     /**/
     g_ptr_array_add(attribute_list,
-        g_strdup_printf("ID=gene%05d", match_id));
+        g_strdup_printf("ID=match%05d", match_id));
     if (gene_orientation != '.') {
         g_ptr_array_add(attribute_list,
             g_strdup_printf("Name=%s",
@@ -2923,7 +2923,7 @@ static void Alignment_display_gff3_gene(Alignment *alignment,
         g_strdup_printf("Gap=%s", cigar_str));
     g_free(cigar_str);
     Alignment_display_gff3_line(alignment, query, target, report_on_query,
-                               "gene",
+                               "match",
                                alignment->region->query_start,
                                alignment->region->target_start,
                                Region_query_end(alignment->region),
@@ -3020,7 +3020,7 @@ static void Alignment_display_gff3_gene(Alignment *alignment,
 */
                     attribute_list = g_ptr_array_new();
                     g_ptr_array_add(attribute_list,
-                                    g_strdup_printf("Parent=gene%05d", match_id));
+                                    g_strdup_printf("Parent=match%05d", match_id));
                     Alignment_display_gff3_exon(alignment,
                           query, target, report_on_query,
                           query_pos, target_pos,
@@ -3067,7 +3067,7 @@ static void Alignment_display_gff3_gene(Alignment *alignment,
 */
                     attribute_list = g_ptr_array_new();
                     g_ptr_array_add(attribute_list,
-                                    g_strdup_printf("Parent=gene%05d", match_id));
+                                    g_strdup_printf("Parent=match%05d", match_id));
                     Alignment_display_gff3_exon(alignment,
                           query, target, report_on_query,
                           query_pos, target_pos,
@@ -3172,7 +3172,7 @@ static void Alignment_display_gff3_gene(Alignment *alignment,
         }
         attribute_list = g_ptr_array_new();
         g_ptr_array_add(attribute_list,
-                        g_strdup_printf("Parent=gene%05d", match_id));
+                        g_strdup_printf("Parent=match%05d", match_id));
         Alignment_display_gff3_exon(alignment,
               query, target, report_on_query,
               query_pos, target_pos,
