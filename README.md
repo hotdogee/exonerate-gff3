@@ -10,7 +10,7 @@ New Option:
 Using the "--gff3 yes" option with the "--showtargetgff yes" option will output GFF3. Without the "--gff3 yes" option, everything works just as before so previous scripts relying on the old output format won’t break. 
    
 Example Command:  
-`exonerate.exe -q protein.fa -t genome.fa --model protein2genome --querytype protein --targettype dna --showvulgar no --softmaskquery yes --softmasktarget yes --minintron 20 --maxintron 3000 --showalignment no --showtargetgff yes --showcigar no --geneseed 250 --score 250 --verbose 0 --gff3 yes`
+`exonerate -q protein.fa -t genome.fa --model protein2genome --querytype protein --targettype dna --showvulgar no --softmaskquery yes --softmasktarget yes --minintron 20 --maxintron 3000 --showalignment no --showtargetgff yes --showcigar no --geneseed 250 --score 250 --verbose 0 --gff3 yes`
 
 Example Output:
 ```
