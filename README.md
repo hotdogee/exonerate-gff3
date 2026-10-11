@@ -32,13 +32,13 @@ With `--gff3 yes`:
 Notes:
 
 * GFF3 is written for target-side GFF (`--showtargetgff`) with the models that align to a genomic target: `est2genome`, `protein2genome`, `coding2genome`, `cdna2genome` and `genome2genome`. For other models, and for `--showquerygff`, `--gff3 yes` prints only the header.
-* Use `--verbose 0` to get a clean GFF3 file. At the default verbosity, exonerate also writes `Command line:`, `Hostname:` and `-- completed exonerate analysis` lines to standard output.
+* Use `--showalignment no --showvulgar no --verbose 0` to get a clean GFF3 file. `--showalignment` and `--showvulgar` are on by default, and at the default verbosity exonerate also writes `Command line:`, `Hostname:` and `-- completed exonerate analysis` lines to standard output.
 * This fork reports itself as `exonerate version 2.3.0`.
 
 Building
 --------
 
-You need a C compiler (GCC or Clang), `make`, `pkg-config` and the GLib 2 development files.
+You need a C compiler, `make`, `pkg-config` and the GLib 2 development files. The build compiles the C code it generates for the alignment models by running `gcc`, or `$CC` if `CC` is set in the environment. So you need a `gcc` command on your `PATH`, or, to build with another compiler such as Clang, run `export CC=clang` before `./configure` and `make` (`./configure CC=clang` alone is not enough).
 
 Debian / Ubuntu:
 
@@ -119,7 +119,7 @@ Run `exonerate --help` for all the other options. They are the same as upstream.
 Testing
 -------
 
-`make check` runs the upstream test suite plus `test/exonerate/exonerate.gff3.test.sh`. That test runs the bundled sequences through `protein2genome` (forward and reverse strand) and `est2genome` with `--gff3 yes`. It checks the header, the 9 columns, the feature types and the `match` / `match_part` links. It also checks that output without `--gff3` is still GFF2. CI runs the same steps on every push and pull request.
+`make check` runs the upstream test suite plus `test/exonerate/exonerate.gff3.test.sh`. That test runs the bundled sequences through `protein2genome` (forward and reverse strand) and `est2genome` with `--gff3 yes`. It checks the header, the 9 columns, the feature types and the `match` / `match_part` links. It also checks that output without `--gff3` is still GFF2, and that `--gff3` prints the header only with `--showtargetgff` or `--showquerygff`. CI runs the same steps on every push to master and on every pull request.
 
 Credits and license
 -------------------
