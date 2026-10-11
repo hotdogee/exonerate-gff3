@@ -148,4 +148,22 @@ grep '^##gff-version 2' $OUTPUTFILE > /dev/null \
     || fail "GFF2 output lacks its ##gff-version 2 header"
 echo "GFF2 output without --gff3 OK"
 
+# 5. --gff3 without a GFF option must not put a header in front of the
+#    default alignment and vulgar output
+$EXONERATE --query "$QUERY" --target "$TARGET" --model protein2genome \
+           --verbose 0 --gff3 yes > $OUTPUTFILE || fail "exonerate exited non-zero"
+grep '^##gff-version' $OUTPUTFILE > /dev/null \
+    && fail "--gff3 without a GFF option printed a ##gff-version header"
+grep '^vulgar:' $OUTPUTFILE > /dev/null \
+    || fail "expected the default vulgar output"
+echo "--gff3 without a GFF option OK"
+
+# 6. --showquerygff has no GFF3 writer, so --gff3 prints only the header
+$EXONERATE --query "$QUERY" --target "$TARGET" --model protein2genome \
+           --showvulgar no --showalignment no --showquerygff yes \
+           --verbose 0 --gff3 yes > $OUTPUTFILE || fail "exonerate exited non-zero"
+[ "`cat $OUTPUTFILE`" = "##gff-version 3" ] \
+    || fail "--showquerygff with --gff3 should print only the GFF3 header"
+echo "GFF3 with --showquerygff OK"
+
 clean_exit 0
