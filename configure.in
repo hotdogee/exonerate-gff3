@@ -6,6 +6,9 @@
 
 AC_INIT(src/sequence/sequence.c)
 AM_INIT_AUTOMAKE(exonerate,2.3.0)
+# DO NOT RE-RUN AUTOTOOLS FROM make UNLESS --enable-maintainer-mode IS GIVEN
+# (A FRESH GIT CHECKOUT CAN LEAVE GENERATED FILES WITH OLDER TIMESTAMPS)
+AM_MAINTAINER_MODE
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
@@ -289,7 +292,7 @@ AC_ARG_ENABLE(pthreads,
 if test "$enable_pthreads" = yes; then
     echo "Using PTHREADS"
     CFLAGS="$CFLAGS -DUSE_PTHREADS"
-    LDFLAGS="$LDFLAGS -lpthread"
+    LIBS="$LIBS -lpthread"
 elif test "$enable_pthreads" = no; then
     echo "Not using pthreads"
 else

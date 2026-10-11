@@ -79,6 +79,11 @@ void Alignment_display_gff(Alignment *alignment,
                            gboolean report_on_query,
                            gboolean report_on_genomic,
                            gint result_id, FILE *fp);
+void Alignment_display_gff3(Alignment *alignment,
+                           Sequence *query, Sequence *target,
+                           gboolean report_on_query,
+                           gboolean report_on_genomic,
+                           gint result_id, FILE *fp);
 
 void Alignment_display_ryo(Alignment *alignment,
         Sequence *query, Sequence *target, gchar *format,

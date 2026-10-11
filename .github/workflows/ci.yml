@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ubuntu-latest (${{ matrix.cc }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    # Export CC rather than passing it to configure: the bootstrapper reads
+    # $CC (default "gcc") to compile the generated model code.
+    env:
+      CC: ${{ matrix.cc }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential clang pkg-config libglib2.0-dev
+
+      - name: Configure
+        run: ./configure
+
+      - name: Build
+        run: make -j"$(nproc)"
+
+      - name: Test
+        run: make -j"$(nproc)" check
+
+      - name: Show test logs
+        if: failure()
+        run: find . -name test-suite.log -exec sh -c 'echo "== $1"; cat "$1"' sh {} \;
+
+      - name: Package binaries
+        if: matrix.cc == 'gcc'
+        run: |
+          make install DESTDIR="$PWD/dist"
+          tar -czvf exonerate-gff3-linux-x86_64.tar.gz -C dist/usr/local bin share
+
+      - name: Upload binaries
+        if: matrix.cc == 'gcc'
+        uses: actions/upload-artifact@v7
+        with:
+          name: exonerate-gff3-linux-x86_64
+          path: exonerate-gff3-linux-x86_64.tar.gz
+          if-no-files-found: error
+
+  # glibc >= 2.34 has pthread in libc, which hides link-order bugs such as #1.
+  legacy-glibc:
+    name: ubuntu:20.04 container (glibc 2.31)
+    runs-on: ubuntu-latest
+    container: ubuntu:20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential pkg-config libglib2.0-dev
+
+      - name: Configure
+        run: ./configure
+
+      - name: Build
+        run: make -j"$(nproc)"
+
+      - name: Test
+        run: make -j"$(nproc)" check
+
+      - name: Show test logs
+        if: failure()
+        run: find . -name test-suite.log -exec sh -c 'echo "== $1"; cat "$1"' sh {} \;
