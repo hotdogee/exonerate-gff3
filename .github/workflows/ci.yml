@@ -18,6 +18,10 @@ jobs:
       fail-fast: false
       matrix:
         cc: [gcc, clang]
+    # Export CC rather than passing it to configure: the bootstrapper reads
+    # $CC (default "gcc") to compile the generated model code.
+    env:
+      CC: ${{ matrix.cc }}
     steps:
       - uses: actions/checkout@v7
 
@@ -28,7 +32,7 @@ jobs:
             build-essential clang pkg-config libglib2.0-dev
 
       - name: Configure
-        run: ./configure CC=${{ matrix.cc }}
+        run: ./configure
 
       - name: Build
         run: make -j"$(nproc)"
