@@ -432,7 +432,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 use_pthreads = @use_pthreads@
-TESTS = exonerate.simple.test.sh
+TESTS = exonerate.simple.test.sh exonerate.gff3.test.sh
 EXTRA_DIST = $(TESTS)
 
 # Files to clear away
@@ -621,6 +621,13 @@ recheck: all
 exonerate.simple.test.sh.log: exonerate.simple.test.sh
 	@p='exonerate.simple.test.sh'; \
 	b='exonerate.simple.test.sh'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+exonerate.gff3.test.sh.log: exonerate.gff3.test.sh
+	@p='exonerate.gff3.test.sh'; \
+	b='exonerate.gff3.test.sh'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \

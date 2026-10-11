@@ -1,5 +1,5 @@
 
-TESTS = exonerate.simple.test.sh
+TESTS = exonerate.simple.test.sh exonerate.gff3.test.sh
 
 EXTRA_DIST = $(TESTS)
 
